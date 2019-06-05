@@ -15,10 +15,16 @@
   <>
 
 .NOTES
-  Version:        1.01
+  Before start running the script, need to install module PSPKI.
+  https://www.powershellgallery.com/packages/PSPKI/3.4.1.0
+
+  Install-Module -Name PSPKI
+
+  Version:        1.10
   Author:         <HAO BAN/hao.ban@ehealthsask.ca>
-  Creation Date:  <05/28/2019>
-  Purpose/Change: Fix the bug that list the CA Server based on Template Name is not exactly match.
+  Creation Date:  <06/05/2019>
+  Purpose/Change: Fix the bug that can't get CN name when it's a wildcard certificate and the error in the certificate file name.
+				  Use PSPKI to automaticlly issue the certificate which template is configured to issue manually.
 
 .EXAMPLE
   This PowerShell passed the test in PowerShell version 5.1
@@ -39,14 +45,21 @@ cls
 $CSRfile = $Args[0]
 $ENV = $Args[1]
 
+Import-Module PSPKI
+
+if ( Test-Path -Path TemplatePropCommonName.csv ) { Clear-Content TemplatePropCommonName.csv }else{ New-Item -Name TemplatePropCommonName.csv -ItemType File }
+if ( Test-Path -Path TemplateOID.csv ) { Clear-Content TemplateOID.csv }else{ New-Item -Name TemplateOID.csv -ItemType File }
+if ( Test-Path -Path TemplateMenu.csv) { Clear-Content TemplateMenu.csv }else{ New-Item -Name TemplateMenu.csv -ItemType File }
+if ( Test-Path -Path CAServers.csv ) { Clear-Content CAServers.csv }else{ New-Item -Name CAServers.csv -ItemType File }
+
 if ( ([string]::IsNullOrEmpty($CSRfile))  ){
   Write-Output "Sorry, missing the CSR file! Please input the CSR file name and try again."
   Write-Output "---USAGE: CSRtoCER.ps1 csrfilename [-cert]---"
 }else {
-  if (Test-Path -Path $CSRfile) {
+  if ( Test-Path -Path $CSRfile ) {
 		$CSRfileOID = certutil.exe -dump .\$CSRfile | findstr "Template=" |  %{ $_.Split('=')[1]; }
-		$CSRfileSubject = ((certutil.exe -dump .\$CSRfile) | select-string '^\s{4}[A-Z]{1,2}=[0-9a-zA-Z]' -AllMatches) | foreach{ $_.ToString().Trim() }
-		$CSRfileCN = ((certutil.exe -dump .\$CSRfile) | select-string '^\s{4}[A-Z]{1,2}=[0-9a-zA-Z]' -AllMatches) | findstr "CN" | %{ $_.Split('=')[1]; } | foreach{ $_.ToString().Trim() }
+		$CSRfileSubject = ((certutil.exe -dump .\$CSRfile) | select-string '^\s{4}[A-Z]{1,2}=[0-9a-zA-Z*]' -AllMatches) | foreach{ $_.ToString().Trim() }
+		$CSRfileCN = (certutil.exe -dump .\$CSRfile) | findstr "CN" | %{ $_.Split('=')[1]; } | foreach{ $_.ToString().Trim() }
 		$CSRfileSAN = certutil.exe -dump .\$CSRfile | findstr "DNS" |  %{ $_.Split('=')[1]; } | sort -u
 		$CSRfileKeyLength = (certutil.exe -dump .\$CSRfile | findstr "Public\ Key\ Length:" |  %{ $_.Split(':')[1]; }).Trim()
 		$DistinguishedNameLength = (((get-addomain | findstr "DistinguishedName" |  foreach{ $_.ToString() } | %{ $_.Split(':')[1]; }).Trim()).Split(',')).count
@@ -64,7 +77,6 @@ if ( ([string]::IsNullOrEmpty($CSRfile))  ){
 		#-------------------------------------------------------------------------------------------------------------------------------------------------------
 		#Generate all the Certificate Templates Name List from every CA Server export into TemplatePropCommonName.csv.
 		#certutil.exe -Template | findstr "TemplatePropCommonName" | %{ $_.Split('=')[1]; } |  %{$_.Substring(1)} > .\TemplatePropCommonName.csv
-		Clear-Content .\TemplatePropCommonName.csv
 		certutil.exe | findstr "Config" | %{ $_.Split('`')[1]; } |  %{$_.Substring(0, $_.length - 1) } > CAServers.csv
 		foreach($line in Get-Content .\CAServers.csv) {
 			$CA = certutil.exe -config $line -CATemplates | findstr "Auto-Enroll" | %{ $_.Split(':')[0]; }
@@ -76,7 +88,6 @@ if ( ([string]::IsNullOrEmpty($CSRfile))  ){
 
 		#-------------------------------------------------------------------------------------------------------------------------------------------------------
 		#Generate all the Certificate Templates OID List export into Template-OID.csv
-		Clear-Content .\TemplateOID.csv
 		foreach($line in Get-Content .\TemplatePropCommonName.csv) {
 			$TemplateName = $line | %{ $_.Split(',')[1]; }
 			$Parameter = "CN="+$TemplateName+",CN=Certificate Templates,CN=Public Key Services,CN=Services,CN=Configuration,"+$ForestDC
@@ -112,7 +123,6 @@ if ( ([string]::IsNullOrEmpty($CSRfile))  ){
 		}else {
 			write-output "------------------------------------------------------------------------------------------------------"
 			Write-Output "CSR file $($CSRfile) doesn't use the Certificate Template. Please choose one Template from the following list:"
-			Clear-Content .\TemplateMenu.csv
 			get-content -Path .\TemplateOID.csv | %{ $_.Split('=')[0]; } | Sort-Object | Get-Unique > TemplateMenu.csv
 			$i = 1
 			$menu = @{}
@@ -153,8 +163,27 @@ if ( ([string]::IsNullOrEmpty($CSRfile))  ){
 			}else{
 				if ( ([string]::IsNullOrEmpty($CSRfileSAN)) ){
 					$CSRfileSAN = $CSRfileCN
-					certreq -f -q -Submit -Attrib "CertificateTemplate:$CSRTemplateName\nSAN:dns=$CSRfileSAN" -config $selection .\$CSRfile $CSRfileCN".cer"
-				}else{ certreq -f -q -Submit -Attrib "CertificateTemplate:$CSRTemplateName" -config $selection .\$CSRfile $CSRfileCN".cer" }
+					if ( $CSRfileCN -match "\*") { $CERFILENAME = $CSRfileCN -replace "\*", "wildcard" } else{ $CERFILENAME = $CSRfileCN }
+					$RequestIdOutPut = certreq -f -q -Submit -Attrib "CertificateTemplate:$CSRTemplateName\nSAN:dns=$CSRfileSAN" -config $selection .\$CSRfile "$($CERFILENAME).cer"
+					$RequestId = $RequestIdOutPut[0] | %{ $_.Split(':')[1]; } | foreach{ $_.ToString().Trim() }
+					$CAServer = $selection | %{ $_.Split('\')[0]; } | foreach{ $_.ToString().Trim() }
+					write-output "This Request Id is $($RequestId)"
+					if ( Test-Path -Path "$($CERFILENAME).cer" ) { write-Output "Certificate $($CERFILENAME).cer generate successfully!" }else{ Get-PendingRequest -CA $CAServer -RequestID $RequestId | Approve-CertificateRequest
+					$CertPath = Get-Location
+					Get-IssuedRequest -CA $CAServer -RequestId $RequestId | Receive-Certificate -Path "$CertPath"
+					Rename-Item -Path "RequestID_$RequestId.cer" -NewName "$CERFILENAME.cer"
+					}
+				}else{ if ( $CSRfileCN -match "\*") { $CERFILENAME = $CSRfileCN -replace "\*", "wildcard" } else{ $CERFILENAME = $CSRfileCN }
+					   $RequestIdOutPut = certreq -f -q -Submit -Attrib "CertificateTemplate:$CSRTemplateName" -config $selection .\$CSRfile "$($CERFILENAME).cer"
+					   $RequestId = $RequestIdOutPut[0] | %{ $_.Split(':')[1]; } | foreach{ $_.ToString().Trim() }
+					   $CAServer = $selection | %{ $_.Split('\')[0]; } | foreach{ $_.ToString().Trim() }
+					   write-output "This Request Id is $($RequestId)"
+					   if ( Test-Path -Path "$($CERFILENAME).cer" ) { write-Output "Certificate $($CERFILENAME).cer generate successfully!" }else{ Get-PendingRequest -CA $CAServer -RequestID $RequestId | Approve-CertificateRequest
+					   $CertPath = Get-Location
+					   Get-IssuedRequest -CA $CAServer -RequestId $RequestId | Receive-Certificate -Path "$CertPath"
+					   Rename-Item -Path "RequestID_$RequestId.cer" -NewName "$CERFILENAME.cer"
+					   }
+					}
 			}
 		}else{
 			write-output "------------------------------------------------------------------------------------------------------"
