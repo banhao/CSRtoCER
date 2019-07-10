@@ -21,7 +21,7 @@
   Install-Module -Name PSPKI
   
   Version:        1.11
-  Author:         <HAO BAN/hao.ban@ehealthsask.ca>
+  Author:         <HAO BAN/banhao@gmail.com>
   Creation Date:  <06/17/2019>
   Purpose/Change: Fix the bug that running in Windows 10 that CertUtil version is 10.0.16299.15
   
