@@ -1,7 +1,7 @@
 
 <#PSScriptInfo
 
-.VERSION 1.11
+.VERSION 1.20
 
 .GUID 134de175-8fd8-4938-9812-053ba39eed83
 
@@ -68,10 +68,10 @@ https://www.powershellgallery.com/packages/PSPKI/3.4.1.0
   
   Install-Module -Name PSPKI
   
-  Version:        1.11
+  Version:        1.20
   Author:         <HAO BAN/banhao@gmail.com>
-  Creation Date:  <06/17/2019>
-  Purpose/Change: Fix the bug that running on Windows 10 that CertUtil version is 10.0.16299.15
+  Creation Date:  <10/08/2019>
+  Purpose/Change: Fix the CertUtil version compare issue
   
 .EXAMPLE
   This PowerShell passed the test in PowerShell version 5.1
@@ -125,8 +125,8 @@ if ( ([string]::IsNullOrEmpty($CSRfile))  ){
 		#-------------------------------------------------------------------------------------------------------------------------------------------------------
 		#Generate all the Certificate Templates Name List from every CA Server export into TemplatePropCommonName.csv.
 		#certutil.exe -Template | findstr "TemplatePropCommonName" | %{ $_.Split('=')[1]; } |  %{$_.Substring(1)} > .\TemplatePropCommonName.csv
-		if ( $CertutilVersion -eq "10.0.16299.15" ){ certutil.exe | findstr "Config" | %{ $_.Split(':')[1]; } | foreach{ $_.ToString().Trim() } > CAServers.csv }
-		else{ certutil.exe | findstr "Config" | %{ $_.Split('`')[1]; } |  %{$_.Substring(0, $_.length - 1) } > CAServers.csv }
+		if ( [version]$CertutilVersion -ge [version]"10.0.16299.15" ){ certutil.exe | findstr "Config" | %{ $_.Split(':')[1]; } | foreach{ $_.ToString().Trim() } > CAServers.csv }
+		else{ certutil.exe | findstr "Config" | %{ $_.Split('`')[1]; } | %{$_.Substring(0, $_.length - 1) } > CAServers.csv }
 		
 		foreach($line in Get-Content .\CAServers.csv) {
 			$CA = certutil.exe -config $line -CATemplates | findstr "Auto-Enroll" | %{ $_.Split(':')[0]; }
