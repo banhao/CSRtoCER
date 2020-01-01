@@ -5,3 +5,5 @@ If the SANs is not empty in the CSR file, the script will use the CSR file’s s
 The script will also list the Template that used in the CSR file, If there's no Template in the CSR file, script will list all the available Certificate Templates from your AD, when you pick up one, script will list the CA Server which has the Template you picked up.
 
 Before you run the script Install the PSPKI module in your PowerShell running environment.
+
+You also can find this script in powershellgallery.com https://www.powershellgallery.com/packages/CSRtoCER/1.20
