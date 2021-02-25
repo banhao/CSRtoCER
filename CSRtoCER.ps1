@@ -1,7 +1,7 @@
 
 <#PSScriptInfo
 
-.VERSION 1.30
+.VERSION 1.31
 
 .GUID 134de175-8fd8-4938-9812-053ba39eed83
 
@@ -36,6 +36,10 @@
 
 .DESCRIPTION 
 CSRtoCER.ps1 is used to view the information from a CSR file and generate the certificate based on the CSR file. This PowerShell will grab the information such as "Subject", "Key Length", "SANs", "Template" from the CSR file. If the SANs is not empty in the CSR file, the script will use the CSR file’s setting. If there's no SANs in CSR file, script will use “CN” as the SANs. The script will also list the Template that used in the CSR file, If there's no Template in the CSR file, script will list all the available Certificate Templates from your AD, when you pick up one, script will list the CA Server which has the Template you picked up. 
+
+  Version:        1.31
+  Creation Date:  <02/25/2021>
+  Purpose/Change: Fix the bug that when the CSR file contains SANs can't generate SANs in Certificate correctly.
 
   Version:        1.30
   Creation Date:  <01/29/2020>
@@ -240,7 +244,7 @@ if ( ([string]::IsNullOrEmpty($CSRfile))  ){
 						}
 				}else{ if ( $CSRfileCN -match "\*") { $CERFILENAME = $CSRfileCN -replace "\*", "wildcard" } else{ $CERFILENAME = $CSRfileCN }
 					   if ( !$($CSRfileSAN.contains($CSRfileCN)) ) { 
-						$SANArray = $CSRfileSAN
+						$SANArray = @($CSRfileSAN)
 						$CSRfileSAN = "SAN:dns="+$CSRfileCN
 						for ($i=0;$i -lt $SANArray.length;$i++){ $CSRfileSAN = $CSRfileSAN+"&dns="+$SANArray[$i] }
 						$RequestIdOutPut = certreq -f -q -Submit -Attrib "CertificateTemplate:$CSRTemplateName\n$CSRfileSAN" -config $selection .\$CSRfile "$($CERFILENAME).cer"
