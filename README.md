@@ -1,4 +1,7 @@
 # CSRtoCER
+[![Minimum Supported PowerShell Version](https://img.shields.io/badge/PowerShell-5.1+-purple.svg)](https://github.com/PowerShell/PowerShell) ![Cross Platform](https://img.shields.io/badge/platform-windows-lightgrey)
+[![PowerShell Gallery Version](https://img.shields.io/powershellgallery/v/CSRtoCER)](https://www.powershellgallery.com/packages/CSRtoCER) [![PowerShell Gallery](https://img.shields.io/powershellgallery/dt/CSRtoCER)](https://www.powershellgallery.com/packages/CSRtoCER)
+
 “CSRtoCER.ps1” is used to view the information from a CSR file and generate the certificate based on the CSR file.
 This PowerShell will grab the information such as "Subject", "Key Length", "SANs", "Template" from the CSR file.
 If the SANs is not empty in the CSR file, the script will use the CSR file’s setting. If there's no SANs in CSR file, script will use “CN” as the SANs.
