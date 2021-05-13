@@ -10,4 +10,4 @@ The script will also list the Template that used in the CSR file, If there's no 
 Before you run the script Install the PSPKI module in your PowerShell running environment. https://www.powershellgallery.com/packages/PSPKI/3.5
 
 
-You also can find this script in powershellgallery.com https://www.powershellgallery.com/packages/CSRtoCER/1.20
+You also can find this script in powershellgallery.com https://www.powershellgallery.com/packages/CSRtoCER/
